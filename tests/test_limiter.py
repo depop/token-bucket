@@ -31,35 +31,29 @@ def test_general_functionality(rate, capacity):
     consume_one()
     time.sleep(float(capacity) / rate)
 
-    # NOTE(kgriffs): This works because we can consume at a much
-    #   higher rate relative to the replenishment rate, such that we
-    #   easily consume the total capacity before a single token can
-    #   be replenished.
     def consume_all():
-        for i in range(capacity + 3):
+        start = time.time()
+        i = 0
+        while True:
             conforming = consume_one()
-
-            # NOTE(kgriffs): One past the end should be non-conforming,
-            #   but sometimes an extra token or two can be generated, so
-            #   only check a couple past the end for non-conforming.
+            elapsed = time.time() - start
             if i < capacity:
                 assert conforming
-            elif i > capacity + 1:
+            elif i > capacity + (rate * elapsed):
                 assert not conforming
+                break
+            i += 1
 
     # Check non-conforming after consuming all of the tokens
     consume_all()
+    start = time.time()
 
     # Let the bucket replenish 1 token
     time.sleep(1.0 / rate)
     assert consume_one()
 
-    # NOTE(kgriffs): Occasionally enough time will have elapsed to
-    #   cause an additional token to be generated. Clear that one
-    #   out if it is there.
-    consume_one()
-
-    assert storage.get_token_count(key) < 1.0
+    elapsed = time.time() - start
+    assert storage.get_token_count(key) < (rate * elapsed)
 
     # NOTE(kgriffs): Let the bucket replenish all the tokens; do this
     #   twice to verify that the bucket is limited to capacity.
